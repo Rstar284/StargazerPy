@@ -1,5 +1,5 @@
 *.json
-!migrations/*
+migrations/*
 migrations/current-*.json
 __pycache__/*
 *.pyc
