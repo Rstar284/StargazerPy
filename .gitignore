@@ -1,0 +1,10 @@
+*.json
+!migrations/*
+migrations/current-*.json
+__pycache__/*
+*.pyc
+*.log
+venv/*
+config.py
+.idea/*
+.vscode/*
