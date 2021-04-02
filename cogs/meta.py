@@ -245,18 +245,19 @@ class Meta(commands.Cog):
 
     @commands.command(hidden=True)
     async def pingmass(self, ctx, times: int, user: Union[discord.Member, discord.User] = None):
-        if times > 20:
-            await ctx.send("Nu ping by yourself and no ratelimit me >:(")
-            return
-        if user == None:
-            await ctx.send("No member, no ping smh")
-            return
-        timesdone = 0
-        while timesdone < times:
-            await ctx.send(user.mention)
-            timesdone = timesdone + 1
-        await ctx.send(f"Finished pinging **{user.name}**, **{times}** times! hehe >:)")
-
+        #if times > 20:
+            #await ctx.send("Nu ping by yourself and no ratelimit me >:(")
+            #return
+        #if user == None:
+            #await ctx.send("No member, no ping smh")
+            #return
+        #timesdone = 0
+        #while timesdone < times:
+        #    await ctx.send(user.mention)
+        #    timesdone = timesdone + 1
+        #await ctx.send(f"Finished pinging **{user.name}**, **{times}** times! hehe >:)")
+        await ctx.send("ping mass is now blocked.")
+        
     @commands.command()
     async def charinfo(self, ctx, *, characters: str):
         """Shows you information about a number of characters.

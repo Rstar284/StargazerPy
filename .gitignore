@@ -1,10 +1,10 @@
-*.json
-migrations/*
-migrations/current-*.json
+migrations/command-*.json
+migrations/r-*.json
+migrations/e-*.json
 __pycache__/*
 *.pyc
 *.log
 venv/*
-config.py
+/config.py
 .idea/*
 .vscode/*

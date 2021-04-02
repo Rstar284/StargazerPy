@@ -7,11 +7,15 @@ import discord
 from discord.ext import commands
 import json
 from cogs.utils import db, fuzzy
-
+import requests
 url_tt = str.maketrans({
     ')': '\\)'
 })
 
+class Text(commands.Converter):
+    async def convert(self, ctx, argument):
+        ret = argument
+        return ret
 
 class SphinxObjectFileReader:
     # Inspired by Sphinx's InventoryFileReader
@@ -66,7 +70,10 @@ class Coding(commands.Cog):
         self.bot = bot
         self.issue = re.compile(r'##(?P<number>[0-9]+)')
         self._recently_blocked = set()
-
+        self.session = aiohttp.ClientSession()
+    def cog_unload():
+        self.session.close()
+        print("session closed.")
     def transform_rtfm_language_key(self, ctx, prefix):
         if ctx.guild is not None:
             #                             日本語 category
@@ -204,7 +211,6 @@ class Coding(commands.Cog):
         """
         Search the Mozilla Developer Network
         """
-        self.session = aiohttp.ClientSession()
         async with self.session.get(
             'https://developer.mozilla.org/api/v1/search/en-US',
             params={'q': ' '.join(search_terms)},
@@ -228,6 +234,46 @@ class Coding(commands.Cog):
         )
 
         await ctx.send(embed=embed)
+    
+    @commands.group(aliases=['hb', 'paste'], invoke_without_command=True)
+    async def hastebin(self, ctx):
+        embed = discord.Embed(
+            title="hastebin command",
+            description='`Example: r!hastebin create(hb, paste also works) language:js, py, etc... Text without ""`'
+
+        )
+        embed.set_author(
+            name=self.bot.user.name,
+            icon_url=self.bot.user.avatar_url
+        )
+        embed.set_footer(
+            text=ctx.author.name + "#" + ctx.author.discriminator,
+            icon_url=ctx.author.avatar_url
+        )
+        await ctx.send(embed=embed)
+    @hastebin.command(name="create")
+    async def createbin(self,ctx, language: str = None,*,text: commands.Greedy[Text]):
+        hatebinurl = "https://haste-server-rstar.herokuapp.com"
+        textinput = text
+        if text == "":
+            await ctx.reply("NO text to put in the paste? WHY")
+            return
+        r = requests.post('%s/documents' % hatebinurl, textinput.encode('utf8'))
+        url = '%s/%s' % (hatebinurl, json.loads(r.content.decode())['key'])
+        if language == None:
+            embed = discord.Embed(
+                title="Hastebin Url Response",
+                description="The paste url is " + url
+            )
+            embed.set_image(url="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse1.mm.bing.net%2Fth%3Fid%3DOIP.i-5wFHjtuMp1hBQq4j20kgAAAA%26pid%3DApi%26h%3D160&f=1")
+            await ctx.send(embed=embed)
+        elif language != None:
+            embed = discord.Embed(
+                title="Hastebin Url Response",
+                description="The paste url is " + url + "." + language.lower()
+            )
+            embed.set_image(url="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse1.mm.bing.net%2Fth%3Fid%3DOIP.i-5wFHjtuMp1hBQq4j20kgAAAA%26pid%3DApi%26h%3D160&f=1")
+            await ctx.send(embed=embed)
 
 def setup(bot):
     bot.add_cog(Coding(bot))
