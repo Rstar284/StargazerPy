@@ -333,6 +333,7 @@ class RstarPy(commands.AutoShardedBot):
         if message.author.bot:
             return
         await self.process_commands(message)
+        
 
     async def on_guild_join(self, guild):
         if guild.id in self.blacklist:
