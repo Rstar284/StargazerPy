@@ -10,9 +10,9 @@ import traceback
 import aiohttp
 import sys
 from collections import Counter, deque, defaultdict
-
-import config
+import discord_slash
 import asyncpg
+import config
 
 log = logging.getLogger(__name__)
 description = """
@@ -68,7 +68,6 @@ class RstarPy(commands.AutoShardedBot):
         self.client_id = config.client_id
         self.session = aiohttp.ClientSession(loop=self.loop)
         self._prev_events = deque(maxlen=10)
-
         # shard_id: List[datetime.datetime]
         # shows the last attempted IDENTIFYs and RESUMEs
         self.resumes = defaultdict(list)
@@ -360,4 +359,3 @@ class RstarPy(commands.AutoShardedBot):
     @property
     def config(self):
         return __import__('config')
-
