@@ -495,5 +495,11 @@ class Admin(commands.Cog):
 
         await ctx.send(f'Status: {ctx.tick(success)} Time: {(end - start) * 1000:.2f}ms')
 
+        @commands.command()
+        @commands.is_owner()
+        async def shutdown(self, ctx):
+            from main import RstarPy
+            RstarPy.close()
+
 def setup(bot):
     bot.add_cog(Admin(bot))

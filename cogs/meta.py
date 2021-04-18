@@ -242,7 +242,7 @@ class Meta(commands.Cog):
     async def hello(self, ctx):
         """Displays my intro message."""
         await ctx.send('Hello! I\'m a bot! Rstar#3577 made me.')
-
+        
     @commands.command(hidden=True)
     async def pingmass(self, ctx, times: int, user: Union[discord.Member, discord.User] = None):
         #if times > 20:
@@ -372,8 +372,8 @@ class Meta(commands.Cog):
 
         channel_info = []
         key_to_emoji = {
-            discord.TextChannel: '<:text_channel:586339098172850187>',
-            discord.VoiceChannel: '<:voice_channel:586339098524909604>',
+            discord.TextChannel: '<:text_channel:815587577629245530>',
+            discord.VoiceChannel: '<:voice_channel:815587577008226395>',
         }
         for key, total in totals.items():
             secrets = secret[key]

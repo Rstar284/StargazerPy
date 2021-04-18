@@ -71,9 +71,11 @@ class Coding(commands.Cog):
         self.issue = re.compile(r'##(?P<number>[0-9]+)')
         self._recently_blocked = set()
         self.session = aiohttp.ClientSession()
-    def cog_unload():
-        self.session.close()
+
+    async def cog_unload():
+        await self.session.close()
         print("session closed.")
+        
     def transform_rtfm_language_key(self, ctx, prefix):
         if ctx.guild is not None:
             #                             日本語 category

@@ -13,6 +13,8 @@ from collections import Counter, deque, defaultdict
 import discord_slash
 import asyncpg
 import config
+from PIL import Image, ImageDraw, ImageFont
+
 
 log = logging.getLogger(__name__)
 description = """
@@ -44,8 +46,9 @@ def _prefix_callable(bot, msg):
     if msg.guild is None:
         base.append('r!')
         base.append('!')
+        base.append('?')
     else:
-        base.extend(bot.prefixes.get(msg.guild.id, ['!', 'r!']))
+        base.extend(bot.prefixes.get(msg.guild.id, ['!', 'r!', '?']))
     return base
 
 
@@ -267,7 +270,7 @@ class RstarPy(commands.AutoShardedBot):
             self.uptime = datetime.datetime.utcnow()
 
         print(f'Ready: {self.user} (ID: {self.user.id})')
-
+        self.change_presence(activity==discord.Game("with alot of stars"), status=discord.Status.dnd)
     async def on_shard_resumed(self, shard_id):
         print(f'Shard ID {shard_id} has resumed...')
         self.resumes[shard_id].append(datetime.datetime.utcnow())
@@ -337,6 +340,17 @@ class RstarPy(commands.AutoShardedBot):
     async def on_guild_join(self, guild):
         if guild.id in self.blacklist:
             await guild.leave()
+
+    async def on_member_join(self, member):
+        img = Image.open('stargazerpfp.png')
+        font = ImageFont.truetype("LemonMilk.ttf", 24)
+        draw = ImageDraw.Draw(img) 
+        text = f"Welcome to {member.guild.name}"
+        draw.text((0, 150), text, (0, 0, 0), font)
+        guild = self.get_guild(764920308846035014)
+        welcomechannel = guild.get_channel(769643161336676388)
+        img.save("welcomeimage.png")
+        welcomechannel.send(f"Welcome {member.mention}!", file=discord.File('welcomeimage.png'))
 
     async def close(self):
         await super().close()

@@ -476,6 +476,11 @@ class Config(commands.Cog):
         else:
             await ctx.send(f'Command successfully disabled for {human_friendly}.')
 
+    @config.group(name="welcomechannel")
+    async def welcomechannelgroup(pass_context=True, invoke_without_command=True, aliases=['wc']):
+        pass
+
+
     @server.before_invoke
     @channel.before_invoke
     @config_enable.before_invoke

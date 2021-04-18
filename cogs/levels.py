@@ -20,6 +20,7 @@ class level(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
+
         stats = leveling.find_one({"id": message.author.id})
         if not message.author.bot:
             if stats is None:
@@ -35,8 +36,9 @@ class level(commands.Cog):
                     lvl += 1
                 xp -= ((50 * ((lvl - 1) ** 2)) + (50 * (lvl - 1)))
                 if xp == 0:
-                    await message.channel.send(
-                        f"woah {message.author.mention}! You leveled up to **level: {lvl}**!!")
+                    if message.server.id != 816602066717900830:
+                        await message.channel.send(
+                            f"woah {message.author.mention}! You leveled up to **level: {lvl}**!!")
 
     @commands.command()
     async def rank(self, ctx, *, user: Union[discord.Member, discord.User] = None):
