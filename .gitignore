@@ -8,3 +8,5 @@ venv/*
 /config.py
 .idea/*
 .vscode/*
+youtube-*.webm
+migrations/current-*.json

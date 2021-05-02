@@ -36,7 +36,7 @@ class level(commands.Cog):
                     lvl += 1
                 xp -= ((50 * ((lvl - 1) ** 2)) + (50 * (lvl - 1)))
                 if xp == 0:
-                    if message.server.id != 816602066717900830:
+                    if message.guild.id != 816602066717900830:
                         await message.channel.send(
                             f"woah {message.author.mention}! You leveled up to **level: {lvl}**!!")
 

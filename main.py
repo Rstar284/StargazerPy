@@ -36,7 +36,8 @@ initial_extensions = (
     'cogs.tags',
     'cogs.stats',
     'jishaku',
-    'cogs.coding'
+    'cogs.coding',
+    'cogs.rust'
 )
 
 
@@ -270,7 +271,7 @@ class RstarPy(commands.AutoShardedBot):
             self.uptime = datetime.datetime.utcnow()
 
         print(f'Ready: {self.user} (ID: {self.user.id})')
-        self.change_presence(activity==discord.Game("with alot of stars"), status=discord.Status.dnd)
+        await self.change_presence(activity=discord.Game("with alot of stars"), status=discord.Status.dnd)
     async def on_shard_resumed(self, shard_id):
         print(f'Shard ID {shard_id} has resumed...')
         self.resumes[shard_id].append(datetime.datetime.utcnow())
@@ -350,7 +351,7 @@ class RstarPy(commands.AutoShardedBot):
         guild = self.get_guild(764920308846035014)
         welcomechannel = guild.get_channel(769643161336676388)
         img.save("welcomeimage.png")
-        welcomechannel.send(f"Welcome {member.mention}!", file=discord.File('welcomeimage.png'))
+        await welcomechannel.send(f"Welcome {member.mention}!", file=discord.File('welcomeimage.png'))
 
     async def close(self):
         await super().close()
