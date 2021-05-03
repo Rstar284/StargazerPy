@@ -342,17 +342,6 @@ class RstarPy(commands.AutoShardedBot):
         if guild.id in self.blacklist:
             await guild.leave()
 
-    async def on_member_join(self, member):
-        img = Image.open('stargazerpfp.png')
-        font = ImageFont.truetype("LemonMilk.ttf", 24)
-        draw = ImageDraw.Draw(img) 
-        text = f"Welcome to {member.guild.name}"
-        draw.text((0, 150), text, (0, 0, 0), font)
-        guild = self.get_guild(764920308846035014)
-        welcomechannel = guild.get_channel(769643161336676388)
-        img.save("welcomeimage.png")
-        await welcomechannel.send(f"Welcome {member.mention}!", file=discord.File('welcomeimage.png'))
-
     async def close(self):
         await super().close()
         await self.session.close()
