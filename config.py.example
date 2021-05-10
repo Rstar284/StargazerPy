@@ -1,0 +1,4 @@
+client_id = '123456789101112' # your bot's client id
+token = 'Your Bots Super Secret Token'
+postgresql = 'postgresql://dbUsername:dbPass@dbServer/dbName'
+stat_webhook = ('123456789101112', 'JJSaDANSDJnJHBNSJHKDBJHbd.jnDHNHdnNSDJNSdjnJNJHNSd') #first webhook id, then webhook token
