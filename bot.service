@@ -1,0 +1,14 @@
+[Unit]
+Description=stargazer@%I
+After=default.target
+
+[Service]
+WorkingDirectory=/home/rstar284/
+ExecStart=/home/rstar284/Desktop/Stargazer/venv/bin/python3.9 -um launcher %I
+Type=idle
+Restart=always
+RestartSec=15
+TimeoutStopSec=10
+
+[Install]
+WantedBy=default.target

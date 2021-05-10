@@ -20,7 +20,6 @@ class level(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-
         stats = leveling.find_one({"id": message.author.id})
         if not message.author.bot:
             if stats is None:

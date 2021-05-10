@@ -242,7 +242,6 @@ class Stats(commands.Cog):
                     voice += 1
 
         embed.add_field(name='Members', value=f'{total_members} total\n{total_unique} unique')
-        embed.add_field(name='Channels', value=f'{text + voice} total\n{text} text\n{voice} voice')
 
         memory_usage = self.process.memory_full_info().uss / 1024**2
         cpu_usage = self.process.cpu_percent() / psutil.cpu_count()
