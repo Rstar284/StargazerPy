@@ -4,7 +4,7 @@ migrations/e-*.json
 __pycache__/*
 *.pyc
 *.log
-venv/*
+activate/*
 /config.py
 .idea/*
 .vscode/*
