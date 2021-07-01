@@ -6,14 +6,10 @@ import aiohttp
 import discord
 from discord.ext import commands
 import json
-import asyncio
 from requests.sessions import session
 from cogs.utils import db, fuzzy
 import requests
 import logging
-from contextlib import redirect_stdout
-import traceback
-import inspect
 
 url_tt = str.maketrans({
     ')': '\\)'
@@ -81,7 +77,6 @@ class Coding(commands.Cog):
         self._recently_blocked = set()
         self.session = aiohttp.ClientSession(loop=self.bot.loop)
         self.sent_evals = {}
-        self.sessions = set()
 
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
@@ -101,13 +96,6 @@ class Coding(commands.Cog):
         return f'```py\n{e.text}{"^":>{e.offset}}\n{e.__class__.__name__}: {e}```'
 
     def transform_rtfm_language_key(self, ctx, prefix):
-        if ctx.guild is not None:
-            #                             日本語 category
-            if ctx.channel.category_id == 490287576670928914:
-                return prefix + '-jp'
-            #                    d.py unofficial JP   Discord Bot Portal JP
-            elif ctx.guild.id in (463986890190749698, 494911447420108820):
-                return prefix + '-jp'
         return prefix
 
     def parse_object_inv(self, stream, url):
@@ -223,13 +211,13 @@ class Coding(commands.Cog):
         """Gives you a documentation link for a discord.py entity.
         Events, objects, and functions are all avalible with the command
         """
-        key = self.transform_rtfm_language_key(ctx, 'latest')
+        key = 'latest'
         await self.do_rtfm(ctx, key, obj)
 
     @commands.command(name='pythondoc', aliases=['pydoc'])
     async def rtfm_python(self, ctx, *, obj: str = None):
         """Gives you a documentation link for a Python entity."""
-        key = self.transform_rtfm_language_key(ctx, 'python')
+        key = 'python'
         await self.do_rtfm(ctx, key, obj)
     
     @commands.command(name='mdn')
@@ -285,93 +273,6 @@ class Coding(commands.Cog):
             embed.set_image(url="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse1.mm.bing.net%2Fth%3Fid%3DOIP.i-5wFHjtuMp1hBQq4j20kgAAAA%26pid%3DApi%26h%3D160&f=1")
             await ctx.send(embed=embed)
 
-    @commands.command(pass_context=True)
-    async def pyrepl(self, ctx):
-        """Launches an interactive REPL session."""
-        variables = {
-            'ctx': ctx,
-            'bot': self.bot,
-            'message': ctx.message,
-            'guild': ctx.guild,
-            'channel': ctx.channel,
-            'author': ctx.author,
-            '_': None,
-        }
-
-        if ctx.channel.id in self.sessions:
-            await ctx.send('Already running a REPL session in this channel. Exit it with `quit`.')
-            return
-
-        self.sessions.add(ctx.channel.id)
-        await ctx.send('Enter code to execute or evaluate. `exit()` or `quit` to exit.')
-
-        def check(m):
-            return m.author.id == ctx.author.id and \
-                   m.channel.id == ctx.channel.id and \
-                   m.content.startswith('`')
-
-        while True:
-            try:
-                response = await self.bot.wait_for('message', check=check, timeout=10.0 * 60.0)
-            except asyncio.TimeoutError:
-                await ctx.send('Exiting REPL session.')
-                self.sessions.remove(ctx.channel.id)
-                break
-
-            cleaned = self.cleanup_code(response.content)
-
-            if cleaned in ('quit', 'exit', 'exit()'):
-                await ctx.send('Exiting.')
-                self.sessions.remove(ctx.channel.id)
-                return
-
-            executor = exec
-            if cleaned.count('\n') == 0:
-                # single statement, potentially 'eval'
-                try:
-                    code = compile(cleaned, '<repl session>', 'eval')
-                except SyntaxError:
-                    pass
-                else:
-                    executor = eval
-
-            if executor is exec:
-                try:
-                    code = compile(cleaned, '<repl session>', 'exec')
-                except SyntaxError as e:
-                    await ctx.send(self.get_syntax_error(e))
-                    continue
-
-            variables['message'] = response
-
-            fmt = None
-            stdout = io.StringIO()
-
-            try:
-                with redirect_stdout(stdout):
-                    result = executor(code, variables)
-                    if inspect.isawaitable(result):
-                        result = await result
-            except Exception as e:
-                value = stdout.getvalue()
-                fmt = f'```py\n{value}{traceback.format_exc()}\n```'
-            else:
-                value = stdout.getvalue()
-                if result is not None:
-                    fmt = f'```py\n{value}{result}\n```'
-                    variables['_'] = result
-                elif value:
-                    fmt = f'```py\n{value}\n```'
-
-            try:
-                if fmt is not None:
-                    if len(fmt) > 4000:
-                        await ctx.send('Content too big to be printed.')
-                    else:
-                        await ctx.send(fmt)
-            except discord.Forbidden:
-                pass
-            except discord.HTTPException as e:
-                await ctx.send(f'Unexpected error: `{e}`')
+    
 def setup(bot):
     bot.add_cog(Coding(bot))
