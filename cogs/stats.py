@@ -205,7 +205,7 @@ class Stats(commands.Cog):
 
         # [`hash`](url) message (offset)
         offset = time.human_timedelta(commit_time.astimezone(datetime.timezone.utc).replace(tzinfo=None), accuracy=1)
-        return f'[`{short_sha2}`](https://github.com/Rapptz/RoboDanny/commit/{commit.hex}) {short} ({offset})'
+        return f'[`{short_sha2}`](https://github.com/Rstar284/Stargazerpy/commit/{commit.hex}) {short} ({offset})'
 
     def get_last_commits(self, count=3):
         repo = pygit2.Repository('.git')
@@ -215,8 +215,9 @@ class Stats(commands.Cog):
     @commands.command()
     async def about(self, ctx):
         """Tells you information about the bot itself."""
-
         embed = discord.Embed(color=discord.Colour.dark_blue())
+        revision = self.get_last_commits()
+        embed = discord.Embed(description='Latest Changes:\n' + revision)
         embed.title = 'Official Bot Server Invite'
         embed.url = 'https://discord.gg/9B7Dx79MgN'
 
@@ -228,12 +229,14 @@ class Stats(commands.Cog):
         # statistics
         total_members = 0
         total_unique = len(self.bot.users)
-
         text = 0
         voice = 0
         guilds = 0
         for guild in self.bot.guilds:
             guilds += 1
+            if guild.unavailable:
+                continue
+
             total_members += guild.member_count
             for channel in guild.channels:
                 if isinstance(channel, discord.TextChannel):
@@ -1059,6 +1062,7 @@ async def on_error(self, event, *args, **kwargs):
     hook = self.get_cog('Stats').webhook
     try:
         await hook.send(embed=e)
+        await hook.send("<@699569487678013471>")
     except:
         pass
 

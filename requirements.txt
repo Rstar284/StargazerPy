@@ -10,7 +10,7 @@ cffi==1.14.5
 chardet==4.0.0
 click==7.1.2
 discord==1.0.1
-discord-ext-menus==1.0.0a26+g84caae8
+git+https://github.com/Rapptz/discord-ext-menus
 discord-py-slash-command==1.1.0
 discord.py==1.6.0
 dnspython==2.1.0

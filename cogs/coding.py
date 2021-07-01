@@ -6,9 +6,15 @@ import aiohttp
 import discord
 from discord.ext import commands
 import json
+import asyncio
+from requests.sessions import session
 from cogs.utils import db, fuzzy
 import requests
 import logging
+from contextlib import redirect_stdout
+import traceback
+import inspect
+
 url_tt = str.maketrans({
     ')': '\\)'
 })
@@ -65,35 +71,6 @@ class Obj(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-class CodeBlock:
-    missing_error = "Missing code block. Please use the following markdown\n\\`\\`\\`rust\ncode here\n\\`\\`\\`"
-
-    def __init__(self, argument):
-        try:
-            block, code = argument.split("\n", 1)
-        except ValueError:
-            raise commands.BadArgument(self.missing_error)
-
-        if not block.startswith("```") and not code.endswith("```"):
-            raise commands.BadArgument(self.missing_error)
-
-        self.source = code.rstrip("`")
-
-
-class CodeSection:
-    missing_error = "Missing code section. Please use the following markdown\n\\`code here\\`\nor\n\\`\\`\\`rust\ncode here\n\\`\\`\\`"
-
-    def __init__(self, code):
-        codeblock = code.startswith("```") and code.endswith("```")
-        codesection = code.startswith("`") and code.endswith("`")
-        if not codesection and not codeblock:
-            raise commands.BadArgument(self.missing_error)
-
-        if codeblock:
-            self.source = "\n".join(code.split("\n")[1:]).rstrip("`")
-        else:
-            self.source = code.strip("`")
-
 class Coding(commands.Cog):
     """
     Provides utilities for help in coding *Me* or any *other* bot or just coding in general
@@ -104,10 +81,25 @@ class Coding(commands.Cog):
         self._recently_blocked = set()
         self.session = aiohttp.ClientSession(loop=self.bot.loop)
         self.sent_evals = {}
+        self.sessions = set()
 
     def cog_unload(self):
         self.bot.loop.create_task(self.session.close())
-        
+    
+    def cleanup_code(self, content):
+        """Automatically removes code blocks from the code."""
+        # remove ```py\n```
+        if content.startswith('```') and content.endswith('```'):
+            return '\n'.join(content.split('\n')[1:-1])
+
+        # remove `foo`
+        return content.strip('` \n')
+
+    def get_syntax_error(self, e):
+        if e.text is None:
+            return f'```py\n{e.__class__.__name__}: {e}\n```'
+        return f'```py\n{e.text}{"^":>{e.offset}}\n{e.__class__.__name__}: {e}```'
+
     def transform_rtfm_language_key(self, ctx, prefix):
         if ctx.guild is not None:
             #                             日本語 category
@@ -269,9 +261,9 @@ class Coding(commands.Cog):
 
         await ctx.send(embed=embed)
     
-    @commands.command(name="createhb")
+    @commands.command(name="hastebin")
     async def haste(self,ctx, language: str = None,*,text: commands.Greedy[Text]):
-        hatebinurl = "https://haste-server-rstar.herokuapp.com"
+        hatebinurl = "https://hastebin.com"
         textinput = text
         if text == "":
             await ctx.reply("NO text to put in the paste? WHY")
@@ -292,170 +284,94 @@ class Coding(commands.Cog):
             )
             embed.set_image(url="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse1.mm.bing.net%2Fth%3Fid%3DOIP.i-5wFHjtuMp1hBQq4j20kgAAAA%26pid%3DApi%26h%3D160&f=1")
             await ctx.send(embed=embed)
-'''
-    @commands.command()
-    async def rustrun(self, ctx: commands.Context, code):
-        """Evaluates Rust code with an optional compilation mode.
-        Defaults to debug.
-        Usage:
-        ?rustrun (--release|--debug) ```rs
-        <your Rust code here>
-        ```
-        """
-        (mode, code) = self.parse_args(code)
-        comment_index = code.source.find("//")
-        end_idx = comment_index if comment_index != -1 else len(code.source)
-        await self.send_playground(
-            ctx, mode, 'fn main(){println!("{:?}",{' + code.source[:end_idx] + "});}"
-        )
 
-    @commands.Cog.listener()
-    async def on_message_edit(self, before, after):
-        sent_eval_id = self.sent_evals.get(before.id, None)
-        if sent_eval_id is not None:
-            ctx: commands.Context = await self.bot.get_context(after)
-            if not ctx.valid:
-                return
-
-            try:
-                sent_eval = await ctx.fetch_message(sent_eval_id)
-
-                await ctx.command.prepare(ctx)
-
-                # 'arg' depends on the name of the argument in the commands above; they must all at least be the same,
-                # and if they change, this must be changed too. Messy, but arguments are only provided as a dict.
-                (mode, code) = self.parse_args(ctx.kwargs["arg"])
-
-                warnings = False
-                if ctx.command.name == "eval":
-                    comment_index = code.source.find("//")
-                    end_idx = comment_index if comment_index != -1 else len(code.source)
-                    code.source = (
-                        'fn main(){println!("{:?}",{' + code.source[:end_idx] + "});}"
-                    )
-                elif ctx.command.name == "playwarn":
-                    warnings = True
-                elif ctx.command.name != "play":
-                    return
-
-                await self.edit_playground(ctx, sent_eval, mode, code.source, warnings)
-            except (
-                discord.HTTPException,
-                discord.Forbidden,
-                commands.MissingRequiredArgument,
-                commands.CommandError,
-            ) as e:
-                await self.cog_command_error(ctx, e)
-
-    @commands.Cog.listener()
-    async def on_message_delete(self, message):
-        self.sent_evals.pop(message.id, None)
-
-    def parse_args(self, args):
-        args = args.replace("\n`", " `").split(" ")
-        if args[0].startswith("--"):
-            mode = args[0][2:]
-            mode.strip()
-            code = " ".join(args[1:])
-            if mode != "release" and mode != "debug":
-                raise commands.BadArgument(
-                    "Bad compile mode. Valid options are `--release` and `--debug`"
-                )
-
-            return mode, CodeSection(code)
-        else:
-            code = " ".join(args[0:])
-            return None, CodeSection(code)
-
-    async def edit_playground(
-        self, ctx: commands.Context, sent_message, mode, code, warnings: bool = False
-    ):
-        async with ctx.typing():
-            await sent_message.edit(
-                content=await self.query_playground(mode, code, warnings)
-            )
-
-    async def send_playground(
-        self, ctx: commands.Context, mode, code, warnings: bool = False
-    ):
-        async with ctx.typing():
-            sent_message = await ctx.send(
-                await self.query_playground(mode, code, warnings)
-            )
-
-        self.sent_evals[ctx.message.id] = sent_message.id
-
-    async def query_playground(self, mode, code, warnings: bool = False):
-        payload = json.dumps(
-            {
-                "channel": "nightly",
-                "edition": "2018",
-                "code": code,
-                "crateType": "bin",
-                "mode": mode if mode is not None else "debug",
-                "tests": False,
-            }
-        )
-
-        async with self.session.post(
-            "https://play.rust-lang.org/execute", data=payload
-        ) as r:
-            if r.status != 200:
-                raise commands.CommandError(
-                    "Rust Playground didn't respond in time. :("
-                )
-
-            response = await r.json()
-            if "error" in response:
-                raise commands.CommandError(response["error"])
-
-            stderr = response["stderr"]
-            stdout = response["stdout"]
-
-            full_response = (
-                stdout
-                if err_regex.search(stderr) is None
-                and not (warnings and len(stderr) >= 4)
-                and "panicked" not in stderr
-                else "\n".join(stderr.split("\n")[1:]) + "\n\n" + stdout
-            )
-            len_response = len(full_response)
-            if len_response == 0:
-                msg = "``` ```"
-            elif len_response < 1990:
-                full_response = full_response.replace("```", "  ̀  ̀  ̀")
-                msg = f"```rs\n{full_response}```"
-            else:
-                msg = await self.get_playground_link(code)
-
-            return msg
-    
-    async def get_playground_link(self, code):
-        headers = {
-            "Content-Type": "application/json",
-            "Referer": "https://discord.gg/9B7Dx79MgN",
+    @commands.command(pass_context=True)
+    async def pyrepl(self, ctx):
+        """Launches an interactive REPL session."""
+        variables = {
+            'ctx': ctx,
+            'bot': self.bot,
+            'message': ctx.message,
+            'guild': ctx.guild,
+            'channel': ctx.channel,
+            'author': ctx.author,
+            '_': None,
         }
 
-        data = json.dumps({"code": code})
+        if ctx.channel.id in self.sessions:
+            await ctx.send('Already running a REPL session in this channel. Exit it with `quit`.')
+            return
 
-        async with self.session.post(
-            "https://play.rust-lang.org/meta/gist/", data=data, headers=headers
-        ) as r:
-            response = await r.json()
+        self.sessions.add(ctx.channel.id)
+        await ctx.send('Enter code to execute or evaluate. `exit()` or `quit` to exit.')
 
-        return (
-            "https://play.rust-lang.org/?version=nightly&mode=debug&edition=2018&gist="
-            + response["id"]
-        )
+        def check(m):
+            return m.author.id == ctx.author.id and \
+                   m.channel.id == ctx.channel.id and \
+                   m.content.startswith('`')
 
-    async def cog_command_error(self, ctx: commands.Context, error):
-        log.error("Playground error: %s", error)
-        if isinstance(error, (discord.HTTPException, discord.Forbidden)):
-            await ctx.send("Error while sending the output.")
-        if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send(CodeBlock.missing_error)
-        if isinstance(error, commands.CommandError):
-            await ctx.send(str(error))
-'''
+        while True:
+            try:
+                response = await self.bot.wait_for('message', check=check, timeout=10.0 * 60.0)
+            except asyncio.TimeoutError:
+                await ctx.send('Exiting REPL session.')
+                self.sessions.remove(ctx.channel.id)
+                break
+
+            cleaned = self.cleanup_code(response.content)
+
+            if cleaned in ('quit', 'exit', 'exit()'):
+                await ctx.send('Exiting.')
+                self.sessions.remove(ctx.channel.id)
+                return
+
+            executor = exec
+            if cleaned.count('\n') == 0:
+                # single statement, potentially 'eval'
+                try:
+                    code = compile(cleaned, '<repl session>', 'eval')
+                except SyntaxError:
+                    pass
+                else:
+                    executor = eval
+
+            if executor is exec:
+                try:
+                    code = compile(cleaned, '<repl session>', 'exec')
+                except SyntaxError as e:
+                    await ctx.send(self.get_syntax_error(e))
+                    continue
+
+            variables['message'] = response
+
+            fmt = None
+            stdout = io.StringIO()
+
+            try:
+                with redirect_stdout(stdout):
+                    result = executor(code, variables)
+                    if inspect.isawaitable(result):
+                        result = await result
+            except Exception as e:
+                value = stdout.getvalue()
+                fmt = f'```py\n{value}{traceback.format_exc()}\n```'
+            else:
+                value = stdout.getvalue()
+                if result is not None:
+                    fmt = f'```py\n{value}{result}\n```'
+                    variables['_'] = result
+                elif value:
+                    fmt = f'```py\n{value}\n```'
+
+            try:
+                if fmt is not None:
+                    if len(fmt) > 4000:
+                        await ctx.send('Content too big to be printed.')
+                    else:
+                        await ctx.send(fmt)
+            except discord.Forbidden:
+                pass
+            except discord.HTTPException as e:
+                await ctx.send(f'Unexpected error: `{e}`')
 def setup(bot):
     bot.add_cog(Coding(bot))

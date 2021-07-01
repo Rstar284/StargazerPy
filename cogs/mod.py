@@ -1,4 +1,6 @@
 from discord.ext import commands, tasks
+from discord.ext.commands.converter import Greedy
+from discord.member import Member
 from .utils import checks, db, time, cache
 from .utils.formats import plural
 from collections import Counter, defaultdict
@@ -125,6 +127,15 @@ class BannedMember(commands.Converter):
 class ActionReason(commands.Converter):
     async def convert(self, ctx, argument):
         ret = f'{ctx.author} (ID: {ctx.author.id}): {argument}'
+
+        if len(ret) > 512:
+            reason_max = 512 - len(ret) + len(argument)
+            raise commands.BadArgument(f'Reason is too long ({len(argument)}/{reason_max})')
+        return ret
+
+class TextReason(commands.Converter):
+    async def convert(self, ctx, argument):
+        ret = f'{argument}'
 
         if len(ret) > 512:
             reason_max = 512 - len(ret) + len(argument)
@@ -402,15 +413,15 @@ class Mod(commands.Cog):
             return
 
         try:
-            await author.ban(reason=f'Spamming mentions ({mention_count} mentions)')
+            await author.kick(reason=f'Spamming mentions ({mention_count} mentions)')
         except Exception as e:
-            log.info(f'Failed to autoban member {author} (ID: {author.id}) in guild ID {guild_id}')
+            log.info(f'Failed to autokick member {author} (ID: {author.id}) in guild ID {guild_id}')
         else:
-            to_send = f'Banned {author} (ID: {author.id}) for spamming {mention_count} mentions.'
+            to_send = f'Kicked {author} (ID: {author.id}) for spamming {mention_count} mentions.'
             async with self._batch_message_lock:
                 self.message_batches[(guild_id, message.channel.id)].append(to_send)
 
-            log.info(f'Member {author} (ID: {author.id}) has been autobanned from guild ID {guild_id}')
+            log.info(f'Member {author} (ID: {author.id}) has been autokicked from guild ID {guild_id}')
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
@@ -1061,11 +1072,15 @@ class Mod(commands.Cog):
         reason = f'Automatic unban from timer made on {timer.created_at} by {moderator}.'
         await guild.unban(discord.Object(id=member_id), reason=reason)
 
+    @commands.command()
+    async def warn(self, ctx: commands.Context, member: MemberID,*,reason: TextReason):
+        await ctx.reply(f"ight, warning {member} now for {reason}")
+        
     @commands.group(invoke_without_command=True, hidden=True)
     @commands.guild_only()
     @checks.has_permissions(ban_members=True)
     async def mentionspam(self, ctx, count: int=None):
-        """Enables auto-banning accounts that spam mentions.
+        """Enables auto-kicking accounts that spam mentions.
 
         If a message contains `count` or more mentions then the
         bot will automatically attempt to auto-ban the member.
@@ -1075,7 +1090,7 @@ class Mod(commands.Cog):
         This only applies for user mentions. Everyone or Role
         mentions are not included.
 
-        To use this command you must have the Ban Members permission.
+        To use this command you must have the Kick Members permission.
         """
 
         if count is None:
@@ -1095,10 +1110,10 @@ class Mod(commands.Cog):
             query = """UPDATE guild_mod_config SET mention_count = NULL WHERE id=$1;"""
             await ctx.db.execute(query, ctx.guild.id)
             self.get_guild_config.invalidate(self, ctx.guild.id)
-            return await ctx.send('Auto-banning members has been disabled.')
+            return await ctx.send('Auto-kicking members has been disabled.')
 
         if count <= 3:
-            await ctx.send('\N{NO ENTRY SIGN} Auto-ban threshold must be greater than three.')
+            await ctx.send('\N{NO ENTRY SIGN} Auto-Kick threshold must be greater than three.')
             return
 
         query = """INSERT INTO guild_mod_config (id, mention_count, safe_mention_channel_ids)
@@ -1108,7 +1123,7 @@ class Mod(commands.Cog):
                 """
         await ctx.db.execute(query, ctx.guild.id, count)
         self.get_guild_config.invalidate(self, ctx.guild.id)
-        await ctx.send(f'Now auto-banning members that mention more than {count} users.')
+        await ctx.send(f'Now auto-kicking members that mention more than {count} users.')
 
     @mentionspam.command(name='ignore', aliases=['bypass'])
     @commands.guild_only()
@@ -1567,11 +1582,82 @@ class Mod(commands.Cog):
                 moderator = f'{moderator} (ID: {mod_id})'
 
             reason = f'Automatic unmute from timer made on {timer.created_at} by {moderator}.'
-        else:
-            reason = f'Expiring self-mute made on {timer.created_at} by {member}'
+
 
         try:
             await member.remove_roles(discord.Object(id=role_id), reason=reason)
+        except discord.HTTPException:
+            # if the request failed then just do it manually
+            async with self._batch_lock:
+                self._data_batch[guild_id].append((member_id, False))
+
+    @commands.command()
+    @can_mute()
+    async def tempunmute(self, ctx, duration: time.FutureTime, member: discord.Member, *, reason: ActionReason = None):
+        """Temporarily unmutes a member for the specified duration.
+
+        The duration can be a a short time form, e.g. 30d or a more human
+        duration such as "until thursday at 3PM" or a more concrete time
+        such as "2024-12-31".
+
+        Note that times are in UTC.
+
+        This has the same permissions as the `mute` command.
+        """
+
+        if reason is None:
+            reason = f'Tempunmute done by {ctx.author} (ID: {ctx.author.id})'
+
+        reminder = self.bot.get_cog('Reminder')
+        if reminder is None:
+            return await ctx.send('Sorry, this functionality is currently unavailable. Try again later?')
+
+        role_id = ctx.guild_config.mute_role_id
+        await member.remove_roles(discord.Object(id=role_id), reason=reason)
+        timer = await reminder.create_timer(duration.dt, 'tempunmute',ctx.guild.id,
+                                                                     ctx.author.id,
+                                                                     member.id,
+                                                                     role_id,
+                                                                     created=ctx.message.created_at)
+        delta = time.human_timedelta(duration.dt, source=timer.created_at)
+        await ctx.send(f'unmuted {discord.utils.escape_mentions(str(member))} for {delta}.')
+
+    @commands.Cog.listener()
+    async def on_tempunmute_timer_complete(self, timer):
+        guild_id, mod_id, member_id, role_id = timer.args
+        await self.bot.wait_until_ready()
+
+        guild = self.bot.get_guild(guild_id)
+        if guild is None:
+            # RIP
+            return
+
+        member = await self.bot.get_or_fetch_member(guild, member_id)
+        '''
+        if member is None or not member._roles.has(role_id):
+            # They left or don't have the role any more so it has to be manually changed in the SQL
+            # if applicable, of course
+            async with self._batch_lock:
+                self._data_batch[guild_id].append((member_id, False))
+            return
+        '''
+        if mod_id != member_id:
+            moderator = await self.bot.get_or_fetch_member(guild, mod_id)
+            if moderator is None:
+                try:
+                    moderator = await self.bot.fetch_user(mod_id)
+                except:
+                    # request failed somehow
+                    moderator = f'Mod ID {mod_id}'
+                else:
+                    moderator = f'{moderator} (ID: {mod_id})'
+            else:
+                moderator = f'{moderator} (ID: {mod_id})'
+
+            reason = f'Automatic unmute from timer made on {timer.created_at} by {moderator}.'
+
+        try:
+            await member.add_role(discord.Object(id=role_id), reason=reason)
         except discord.HTTPException:
             # if the request failed then just do it manually
             async with self._batch_lock:
@@ -1766,57 +1852,14 @@ class Mod(commands.Cog):
         await ctx.send('Successfully unbound mute role.')
 
     @commands.command()
-    @commands.guild_only()
-    async def selfmute(self, ctx, *, duration: time.ShortTime):
-        """Temporarily mutes yourself for the specified duration.
+    async def nick(self, ctx, member: Member = None, *, nick: str):
+        member = member or ctx.author
+        try:
+            await member.edit(nick=nick, reason=f"{ctx.author} changed the nick")
+            await ctx.reply(f"i have changed {discord.utils.escape_mentions(str(member))}'s nick to {nick}")
+        except discord.Forbidden as e:
+            await ctx.reply(f"sorry <:blobsad:856793469834231819> i do not have the permission to do so")
 
-        The duration must be in a short time form, e.g. 4h. Can
-        only mute yourself for a maximum of 24 hours and a minimum
-        of 5 minutes.
-
-        Do not ask a moderator to unmute you.
-        Lolol
-        """
-
-        reminder = self.bot.get_cog('Reminder')
-        if reminder is None:
-            return await ctx.send('Sorry, this functionality is currently unavailable. Try again later?')
-
-        config = await self.get_guild_config(ctx.guild.id)
-        role_id = config and config.mute_role_id
-        if role_id is None:
-            raise NoMuteRole()
-
-        if ctx.author._roles.has(role_id):
-            return await ctx.send('Somehow you are already muted <:rooThink:596576798351949847>')
-
-        created_at = ctx.message.created_at
-        if duration.dt > (created_at + datetime.timedelta(days=1)):
-            return await ctx.send('Duration is too long. Must be at most 24 hours.')
-
-        if duration.dt < (created_at + datetime.timedelta(minutes=5)):
-            return await ctx.send('Duration is too short. Must be at least 5 minutes.')
-
-        delta = time.human_timedelta(duration.dt, source=created_at)
-        warning = f'Are you sure you want to be muted for {delta}?\n**Do not ask the moderators to undo this! :kekw:**'
-        confirm = await ctx.prompt(warning, reacquire=False)
-        if not confirm:
-            return await ctx.send('Aborting', delete_after=5.0)
-
-        reason = f'Self-mute for {ctx.author} (ID: {ctx.author.id}) for {delta}'
-        await ctx.author.add_roles(discord.Object(id=role_id), reason=reason)
-        timer = await reminder.create_timer(duration.dt, 'tempmute', ctx.guild.id,
-                                                                     ctx.author.id,
-                                                                     ctx.author.id,
-                                                                     role_id,
-                                                                     created=created_at)
-
-        await ctx.send(f'\N{OK HAND SIGN} Muted for {delta}. Be sure not to bother anyone about it.')
-
-    @selfmute.error
-    async def on_selfmute_error(self, ctx, error):
-        if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send('Missing a duration to selfmute for.')
 
 def setup(bot):
     bot.add_cog(Mod(bot))

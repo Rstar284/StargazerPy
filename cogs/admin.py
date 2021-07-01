@@ -14,7 +14,7 @@ import copy
 import time
 import subprocess
 from typing import Union, Optional
-
+from main import RstarPy as Client
 # to expose to the eval command
 import datetime
 from collections import Counter
@@ -215,7 +215,7 @@ class Admin(commands.Cog):
 
     @commands.command(pass_context=True, hidden=True, name='eval')
     async def _eval(self, ctx, *, body: str):
-        """Evaluates a code"""
+        """Evaluates python code"""
 
         env = {
             'bot': self.bot,
@@ -259,6 +259,7 @@ class Admin(commands.Cog):
             else:
                 self._last_result = ret
                 await ctx.send(f'```py\n{value}{ret}\n```')
+
 
     @commands.command(pass_context=True, hidden=True)
     async def repl(self, ctx):
@@ -419,7 +420,7 @@ class Admin(commands.Cog):
             await ctx.send(fmt)
 
     @commands.command(hidden=True)
-    async def sudo(self, ctx, channel: Optional[GlobalChannel], who: Union[discord.Member, discord.User], *, command: str):
+    async def doas(self, ctx, channel: Optional[GlobalChannel], who: Union[discord.Member, discord.User], *, command: str):
         """Run a command as another user optionally in another channel."""
         msg = copy.copy(ctx.message)
         channel = channel or ctx.channel
@@ -499,7 +500,7 @@ class Admin(commands.Cog):
         @commands.is_owner()
         async def shutdown(self, ctx):
             from main import RstarPy
-            RstarPy.close()
+            await RstarPy.close(self)
 
 def setup(bot):
     bot.add_cog(Admin(bot))

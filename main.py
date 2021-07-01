@@ -1,24 +1,21 @@
-from discord.ext import commands
-import discord
-from cogs.utils import checks, context, db
-from cogs.utils.config import Config
-import datetime, re
-import json, asyncio
-import copy
+import datetime
+import json
 import logging
-import traceback
-import aiohttp
 import sys
+import traceback
 from collections import Counter, deque, defaultdict
-import discord_slash
-import asyncpg
-import config
-from PIL import Image, ImageDraw, ImageFont
 
+import aiohttp
+import discord
+from discord.ext import commands
+
+import config
+from cogs.utils import context
+from cogs.utils.config import Config
 
 log = logging.getLogger(__name__)
 description = """
-    Hello! Im a bot made by Rstar to well... do stuff and also to test d.py :)
+    Hello! Im a bot made by Rstar to well... do stuff :)
 """
 
 initial_extensions = (
@@ -72,6 +69,7 @@ class RstarPy(commands.AutoShardedBot):
         self.client_id = config.client_id
         self.session = aiohttp.ClientSession(loop=self.loop)
         self._prev_events = deque(maxlen=10)
+        self.remove_command("help")
         # shard_id: List[datetime.datetime]
         # shows the last attempted IDENTIFYs and RESUMEs
         self.resumes = defaultdict(list)

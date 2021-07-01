@@ -11,8 +11,7 @@ from .utils import formats
 from .utils import time as timeutils
 from .utils.paginator import RoboPages
 
-import time
-
+from .utils import time
 
 class Prefix(commands.Converter):
     async def convert(self, ctx, argument):
@@ -74,7 +73,7 @@ class BotHelpPageSource(menus.ListPageSource):
                       f'Use "{prefix}help category" for more info on a category.\n' \
                       'For more help, join the official bot support server: https://discord.gg/9B7Dx79MgN'
 
-        embed = discord.Embed(title='Categories', description=description, colour=discord.Colour.dark_blue())
+        embed = discord.Embed(title='Categories', description=description, colour=discord.Colour.dark_gold())
 
         for cog in cogs:
             commands = self.commands.get(cog)
@@ -114,36 +113,7 @@ class HelpMenu(RoboPages):
     def __init__(self, source):
         super().__init__(source)
 
-    @menus.button('\N{WHITE QUESTION MARK ORNAMENT}', position=menus.Last(5))
-    async def show_bot_help(self, payload):
-        """shows how to use the bot"""
 
-        embed = discord.Embed(title='Using the bot', colour=discord.Colour.dark_blue())
-        embed.title = 'Using the bot'
-        embed.description = 'Hello! This is the help page.'
-
-        entries = (
-            ('<argument>', 'This means the argument is __**required**__.'),
-            ('[argument]', 'This means the argument is __**optional**__.'),
-            ('[A|B]', 'This means that it can be __**either A or B**__.'),
-            ('[argument...]', 'This means you can have multiple arguments.\n' \
-                              'Now that you know the basics, it should be noted that...\n' \
-                              '__**You do not type in the brackets!**__')
-        )
-
-        embed.add_field(name='How do I use this bot?', value='Its actually prrtty simple.')
-
-        for name, value in entries:
-            embed.add_field(name=name, value=value, inline=False)
-
-        embed.set_footer(text=f'We were on page {self.current_page + 1} before you wanted this page.')
-        await self.message.edit(embed=embed)
-
-        async def go_back_to_current_page():
-            await asyncio.sleep(30.0)
-            await self.show_page(self.current_page)
-
-        self.bot.loop.create_task(go_back_to_current_page())
 
 
 class PaginatedHelpCommand(commands.HelpCommand):
@@ -245,18 +215,17 @@ class Meta(commands.Cog):
         
     @commands.command(hidden=True)
     async def pingmass(self, ctx, times: int, user: Union[discord.Member, discord.User] = None):
-        #if times > 20:
-            #await ctx.send("Nu ping by yourself and no ratelimit me >:(")
-            #return
-        #if user == None:
-            #await ctx.send("No member, no ping smh")
-            #return
-        #timesdone = 0
-        #while timesdone < times:
-        #    await ctx.send(user.mention)
-        #    timesdone = timesdone + 1
-        #await ctx.send(f"Finished pinging **{user.name}**, **{times}** times! hehe >:)")
-        await ctx.send("ping mass is now blocked.")
+        if times > 20:
+            await ctx.send("Nu ping by yourself and no ratelimit me >:(")
+            return
+        if user == None:
+            await ctx.send("No member, no ping smh")
+            return
+        timesdone = 0
+        while timesdone < times:
+            await ctx.send(user.mention)
+            timesdone = timesdone + 1
+        await ctx.send(f"Finished pinging **{user.name}**, **{times}** times! hehe >:)")
         
     @commands.command()
     async def charinfo(self, ctx, *, characters: str):
@@ -303,7 +272,14 @@ class Meta(commands.Cog):
             if dt is None:
                 return 'N/A'
             return f'{dt:%Y-%m-%d %H:%M} ({timeutils.human_timedelta(dt, accuracy=3)})'
-
+        nickname = ""
+        if type(user) == discord.User:
+            nickname = "This user is not in this server"
+        elif user.nick == None:
+            nickname = "This user does not have a nickname"
+        else:
+            nickname = user.nick
+        e.add_field(name='Nickname', value=nickname, inline=False)
         e.add_field(name='ID', value=user.id, inline=False)
         e.add_field(name='Joined', value=format_date(getattr(user, 'joined_at', None)), inline=False)
         e.add_field(name='Created', value=format_date(user.created_at), inline=False)
@@ -408,7 +384,7 @@ class Meta(commands.Cog):
 
         for feature, label in all_features.items():
             if feature in features:
-                info.append(f'{ctx.tick(True)}: {label}')
+                info.append(f'<:greenTick:815587577276923944> : {label}')
 
         if info:
             e.add_field(name='Features', value='\n'.join(info))
@@ -505,9 +481,9 @@ class Meta(commands.Cog):
 
     @commands.command()
     async def ping(self, ctx):
-        """*Current ping and latency of the bot*
-        **Example**: `r!ping`"""
+        """*Current ping and latency of the bot"""
         embed = discord.Embed()
+        embed.description = "My Ping and Latency is:"
         before_time = time.time()
         msg = await ctx.send(embed=embed)
         latency = round(self.bot.latency * 1000)
@@ -515,13 +491,6 @@ class Meta(commands.Cog):
         embed.add_field(name="ping", value=f"{elapsed_ms}ms")
         embed.add_field(name="latency", value=f"{latency}ms")
         await msg.edit(embed=embed)
-
-    @commands.command()
-    async def starttime(self, ctx):
-        """*When the bot was started*
-        **Example**: `r!starttime`"""
-        embed = discord.Embed(description=f"I'm up since {self.start_time}.")
-        await ctx.send(embed=embed)
 
     @commands.command()
     async def say(self, ctx, *, message):

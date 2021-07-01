@@ -90,13 +90,13 @@ class Rust(commands.Cog):
                 (mode, code) = self.parse_args(ctx.kwargs["arg"])
 
                 warnings = False
-                if ctx.command.name == "eval":
+                if ctx.command.name == "rusteval":
                     comment_index = code.source.find("//")
                     end_idx = comment_index if comment_index != -1 else len(code.source)
                     code.source = (
                         'fn main(){println!("{:?}",{' + code.source[:end_idx] + "});}"
                     )
-                elif ctx.command.name == "playwarn":
+                elif ctx.command.name == "rustwarn":
                     warnings = True
                 elif ctx.command.name != "play":
                     return
