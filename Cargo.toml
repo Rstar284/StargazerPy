@@ -1,7 +1,0 @@
-[package]
-name = "rfetch"
-version = "0.1.0"
-authors = ["Rstar284 <https://rstar284.tk>"]
-edition = "2018"
-
-[dependencies]
