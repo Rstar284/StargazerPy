@@ -466,8 +466,8 @@ class Mod(commands.Cog):
         e.set_thumbnail(url=member.avatar_url_as(static_format='png', size=1024))
         e.set_author(name=str(member), icon_url=member.avatar_url)
         e.add_field(name='ID', value=member.id)
-        e.add_field(name='Joined', value=member.joined_at)
-        e.add_field(name='Created', value=time.human_timedelta(member.created_at), inline=False)
+        e.add_field(name='Joined', value=time.format_dt(member.joined_at, "F"))
+        e.add_field(name='Created', value=time.format_relative(member.created_at), inline=False)
 
         if config.broadcast_channel:
             try:
@@ -542,7 +542,7 @@ class Mod(commands.Cog):
         e = discord.Embed(title='New Members', colour=discord.Colour.green())
 
         for member in members:
-            body = f'Joined {time.human_timedelta(member.joined_at)}\nCreated {time.human_timedelta(member.created_at)}'
+            body = f'Joined {time.format_relative(member.joined_at)}\nCreated {time.format_relative(member.created_at)}'
             e.add_field(name=f'{member} (ID: {member.id})', value=body, inline=False)
 
         await ctx.send(embed=e)
@@ -1059,7 +1059,7 @@ class Mod(commands.Cog):
                                                                     member.id,
                                                                     connection=ctx.db,
                                                                     created=ctx.message.created_at)
-        await ctx.send(f'Banned {member} for {time.human_timedelta(duration.dt, source=timer.created_at)}.')
+        await ctx.send(f'Banned {member} for {time.format_relative(duration.dt)}.')
 
     @commands.Cog.listener()
     async def on_tempban_timer_complete(self, timer):
@@ -1556,13 +1556,12 @@ class Mod(commands.Cog):
 
         role_id = ctx.guild_config.mute_role_id
         await member.add_roles(discord.Object(id=role_id), reason=reason)
-        timer = await reminder.create_timer(duration.dt, 'tempmute', ctx.guild.id,
+        await reminder.create_timer(duration.dt, 'tempmute', ctx.guild.id,
                                                                      ctx.author.id,
                                                                      member.id,
                                                                      role_id,
                                                                      created=ctx.message.created_at)
-        delta = time.human_timedelta(duration.dt, source=timer.created_at)
-        await ctx.send(f'Muted {discord.utils.escape_mentions(str(member))} for {delta}.')
+        await ctx.send(f'Muted {discord.utils.escape_mentions(str(member))} for {time.format_relative(duration.dt)}.')
 
     @commands.Cog.listener()
     async def on_tempmute_timer_complete(self, timer):
@@ -1628,13 +1627,12 @@ class Mod(commands.Cog):
 
         role_id = ctx.guild_config.mute_role_id
         await member.remove_roles(discord.Object(id=role_id), reason=reason)
-        timer = await reminder.create_timer(duration.dt, 'tempunmute',ctx.guild.id,
+        await reminder.create_timer(duration.dt, 'tempunmute',ctx.guild.id,
                                                                      ctx.author.id,
                                                                      member.id,
                                                                      role_id,
                                                                      created=ctx.message.created_at)
-        delta = time.human_timedelta(duration.dt, source=timer.created_at)
-        await ctx.send(f'unmuted {discord.utils.escape_mentions(str(member))} for {delta}.')
+        await ctx.send(f'unmuted {discord.utils.escape_mentions(str(member))} for {time.format_relative(duration.dt)}.')
 
     @commands.Cog.listener()
     async def on_tempunmute_timer_complete(self, timer):

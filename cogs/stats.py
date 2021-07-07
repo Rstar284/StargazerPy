@@ -190,7 +190,7 @@ class Stats(commands.Cog):
         await ctx.send(f'{total} socket events observed ({cpm:.2f}/minute):\n{self.bot.socket_stats}')
 
     def get_bot_uptime(self, *, brief=False):
-        return time.human_timedelta(self.bot.uptime, accuracy=None, brief=brief, suffix=False)
+        return time.format_relative(self.bot.uptime, accuracy=None, brief=brief, suffix=False)
 
     @commands.command()
     async def uptime(self, ctx):
@@ -204,7 +204,7 @@ class Stats(commands.Cog):
         commit_time = datetime.datetime.fromtimestamp(commit.commit_time).astimezone(commit_tz)
 
         # [`hash`](url) message (offset)
-        offset = time.human_timedelta(commit_time.astimezone(datetime.timezone.utc).replace(tzinfo=None), accuracy=1)
+        offset = time.format_relative(commit_time.astimezone(datetime.timezone.utc))
         return f'[`{short_sha2}`](https://github.com/Rstar284/Stargazerpy/commit/{commit.hex}) {short} ({offset})'
 
     def get_last_commits(self, count=3):

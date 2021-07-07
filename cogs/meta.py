@@ -395,7 +395,7 @@ class Meta(commands.Cog):
             boosts = f'Level {guild.premium_tier}\n{guild.premium_subscription_count} boosts'
             last_boost = max(guild.members, key=lambda m: m.premium_since or guild.created_at)
             if last_boost.premium_since is not None:
-                boosts = f'{boosts}\nLast Boost: {last_boost} ({time.human_timedelta(last_boost.premium_since, accuracy=2)})'
+                boosts = f'{boosts}\nLast Boost: {last_boost} ({time.format_relative(last_boost.premium_since, accuracy=2)})'
             e.add_field(name='Boosts', value=boosts, inline=False)
 
         bots = sum(m.bot for m in guild.members)

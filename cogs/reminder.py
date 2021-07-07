@@ -245,7 +245,7 @@ class Reminder(commands.Cog):
 
         for _id, expires, message in records:
             shorten = textwrap.shorten(message, width=512)
-            e.add_field(name=f'{_id}: In {time.human_timedelta(expires)}', value=shorten, inline=False)
+            e.add_field(name=f'{_id}: {time.format_relative(expires)}', value=shorten, inline=False)
 
         await ctx.send(embed=e)
 
