@@ -43,11 +43,12 @@ class GuildConfig(db.Table, table_name='guild_mod_config'):
     safe_mention_channel_ids = db.Column(db.Array(db.Integer(big=True)))
     mute_role_id = db.Column(db.Integer(big=True))
     muted_members = db.Column(db.Array(db.Integer(big=True)))
+    welcome_channel = db.Column(db.Integer(big=True))
 
 ## Configuration
 
 class ModConfig:
-    __slots__ = ('raid_mode', 'id', 'bot', 'broadcast_channel_id', 'mention_count',
+    __slots__ = ("welcome_channel_id", 'raid_mode', 'id', 'bot', 'broadcast_channel_id', 'mention_count',
                  'safe_mention_channel_ids', 'mute_role_id', 'muted_members')
 
     @classmethod
@@ -63,12 +64,18 @@ class ModConfig:
         self.safe_mention_channel_ids = set(record['safe_mention_channel_ids'] or [])
         self.muted_members = set(record['muted_members'] or [])
         self.mute_role_id = record['mute_role_id']
+        self.welcome_channel_id = record['welcome_channel']
         return self
 
     @property
     def broadcast_channel(self):
         guild = self.bot.get_guild(self.id)
         return guild and guild.get_channel(self.broadcast_channel_id)
+
+    @property
+    def welcome_channel(self):
+        guild = self.bot.get_guild(self.id)
+        return guild and guild.get_channel(self.welcome_channel_id)
 
     @property
     def mute_role(self):
@@ -424,7 +431,7 @@ class Mod(commands.Cog):
             log.info(f'Member {author} (ID: {author.id}) has been autokicked from guild ID {guild_id}')
 
     @commands.Cog.listener()
-    async def on_member_join(self, member):
+    async def on_member_join(self, member: discord.Member):
         guild_id = member.guild.id
         config = await self.get_guild_config(guild_id)
         if config is None:
@@ -456,6 +463,7 @@ class Mod(commands.Cog):
 
         e = discord.Embed(title=title, colour=colour)
         e.timestamp = now
+        e.set_thumbnail(url=member.avatar_url_as(static_format='png', size=1024))
         e.set_author(name=str(member), icon_url=member.avatar_url)
         e.add_field(name='ID', value=member.id)
         e.add_field(name='Joined', value=member.joined_at)
@@ -467,6 +475,12 @@ class Mod(commands.Cog):
             except discord.Forbidden:
                 async with self._disable_lock:
                     await self.disable_raid_mode(guild_id)
+        if config.welcome_channel:
+            try: 
+                await config.welcome_channel.send(embed=e)
+            except discord.Forbidden:
+                print(f"I was unable to send a message in: {config.welcome_channel.mention()}, member joined was: {str(member)} in guild: {member.guild.name}")
+
 
     @commands.Cog.listener()
     async def on_member_update(self, before, after):

@@ -1,7 +1,9 @@
 import asyncpg
+from discord import guild
 from discord.ext import commands, menus
 from .utils import db, checks, cache
 from .utils.paginator import RoboPages
+from .mod import GuildConfig, ModConfig, Mod
 
 from collections import defaultdict
 from typing import Optional
@@ -55,7 +57,7 @@ class CommandConfig(db.Table, table_name='command_config'):
     def create_table(cls, *, exists_ok=True):
         statement = super().create_table(exists_ok=exists_ok)
         # create the unique index
-        sql = "CREATE UNIQUE INDEX IF NOT EXISTS command_config_uniq_idx ON command_config (channel_id, name, whitelist);"
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS command_config_uniq_idx ON command_config (channel_id, name, whitelist, wc);"
         return statement + '\n' + sql
 
 class CommandName(commands.Converter):
@@ -476,10 +478,42 @@ class Config(commands.Cog):
         else:
             await ctx.send(f'Command successfully disabled for {human_friendly}.')
 
-    @config.group(name="welcomechannel")
-    async def welcomechannelgroup(pass_context=True, invoke_without_command=True, aliases=['wc']):
-        pass
+    @commands.group()
+    @checks.is_mod()
+    async def wc(self, ctx):
+        query = "SELECT welcome_channel FROM guild_mod_config WHERE id=$1;"
+        row = await ctx.db.fetchrow(query, ctx.guild.id)
+        if row is None:
+            fmt = "Welcome Channel: Not set"
+        else:
+            channel = f'<#{row[0]}>' if row[0] else None
+            fmt = f'Welcome Channel: {channel}'
+        await ctx.send(fmt)
 
+    @wc.command(name="set")
+    @checks.is_mod()
+    async def wc_set(self, ctx: commands.Context, *, channel: discord.TextChannel = None):
+        channel = channel or ctx.channel
+        query = """INSERT INTO guild_mod_config (id, welcome_channel)
+                   VALUES ($1, $2) ON CONFLICT (id)
+                   DO UPDATE SET
+                        welcome_channel = EXCLUDED.welcome_channel;
+                """
+        await ctx.db.execute(query, ctx.guild.id, channel.id)
+        Mod.get_guild_config.invalidate(Mod, ctx.guild.id)
+        await ctx.reply(f"**Welcome channel set!** Sending new member data to {channel.mention}.")
+
+    @wc.command(name='remove')
+    @checks.is_mod()
+    async def wc_remove(self, ctx: commands.Context):
+        query = """INSERT INTO guild_mod_config (id, welcome_channel)
+                   VALUES ($1, NULL) ON CONFLICT (id)
+                   DO UPDATE SET
+                        welcome_channel = NULL;
+                """
+        await self.bot.pool.execute(query, Mod.guild_id)
+        Mod.get_guild_config.invalidate(Mod, ctx.guild.id)
+        await ctx.reply(f"**Sending Messages to the welcome channel will be stoped.**")
 
     @server.before_invoke
     @channel.before_invoke

@@ -102,6 +102,21 @@
             "unique": false,
             "name": "muted_members",
             "index_name": null
+        },
+        {
+            "column_type": {
+                "big": true,
+                "small": false,
+                "auto_increment": false,
+                "__meta__": "cogs.utils.db.Integer"
+            },
+            "index": false,
+            "primary_key": false,
+            "nullable": true,
+            "default": null,
+            "unique": false,
+            "name": "welcome_channel",
+            "index_name": null
         }
     ]
 }

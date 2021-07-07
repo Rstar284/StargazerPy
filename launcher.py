@@ -38,6 +38,7 @@ class RemoveNoise(logging.Filter):
 
 @contextlib.contextmanager
 def setup_logging():
+    global log
     try:
         # __enter__
         max_bytes = 32 * 1024 * 1024  # 32 MiB

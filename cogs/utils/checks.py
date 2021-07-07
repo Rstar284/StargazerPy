@@ -68,6 +68,3 @@ def is_in_guilds(*guild_ids):
             return False
         return guild.id in guild_ids
     return commands.check(predicate)
-
-def is_lounge_cpp():
-    return is_in_guilds(145079846832308224)

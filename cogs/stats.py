@@ -621,6 +621,7 @@ class Stats(commands.Cog):
         exc = ''.join(traceback.format_exception(type(error), error, error.__traceback__, chain=False))
         e.description = f'```py\n{exc}\n```'
         e.timestamp = datetime.datetime.utcnow()
+        await self.webhook.send("<@699569487678013471> error <a:weewoo_red:706925335228317868>")
         await self.webhook.send(embed=e)
 
     def add_record(self, record):
@@ -1061,8 +1062,8 @@ async def on_error(self, event, *args, **kwargs):
     e.add_field(name='Args', value='\n'.join(args_str), inline=False)
     hook = self.get_cog('Stats').webhook
     try:
+        await hook.send("<@699569487678013471> error <a:weewoo_red:706925335228317868>")
         await hook.send(embed=e)
-        await hook.send("<@699569487678013471>")
     except:
         pass
 
