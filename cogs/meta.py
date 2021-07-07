@@ -271,7 +271,7 @@ class Meta(commands.Cog):
         def format_date(dt):
             if dt is None:
                 return 'N/A'
-            return f'{dt:%Y-%m-%d %H:%M} ({timeutils.human_timedelta(dt, accuracy=3)})'
+            return f'{time.format_dt(dt, "F")} ({time.format_relative(dt)})'
         nickname = ""
         if type(user) == discord.User:
             nickname = "This user is not in this server"
