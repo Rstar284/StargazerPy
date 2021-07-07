@@ -50,15 +50,15 @@ class Timer:
         return hash(self.id)
 
     @property
-    def human_delta(self):
-        return time.human_timedelta(self.created_at)
+    def time_format(self):
+        return time.format_relative(self.created_at)
 
     def __repr__(self):
         return f'<Timer created={self.created_at} expires={self.expires} event={self.event}>'
 
 
 class Reminder(commands.Cog):
-    """Reminders to do something."""
+    """Reminders to do remind yourself of something."""
 
     def __init__(self, bot):
         self.bot = bot
@@ -106,10 +106,7 @@ class Reminder(commands.Cog):
     async def dispatch_timers(self):
         try:
             while not self.bot.is_closed():
-                # can only asyncio.sleep for up to ~48 days reliably
-                # so we're gonna cap it off at 40 days
-                # see: http://bugs.python.org/issue20493
-                timer = self._current_timer = await self.wait_for_active_timers(days=40)
+                timer = self._current_timer = await self.wait_for_active_timers(days=42)
                 now = datetime.datetime.utcnow()
 
                 if timer.expires >= now:
@@ -208,7 +205,7 @@ class Reminder(commands.Cog):
         - "in 3 days do the thing"
         - "2d unmute someone"
 
-        Times are in UTC.
+        Times are in UTC, so adjust accordingly.
         """
 
         timer = await self.create_timer(when.dt, 'reminder', ctx.author.id,
@@ -217,8 +214,7 @@ class Reminder(commands.Cog):
                                         connection=ctx.db,
                                         created=ctx.message.created_at,
                                         message_id=ctx.message.id)
-        delta = time.human_timedelta(when.dt, source=timer.created_at)
-        await ctx.send(f"Alright {ctx.author.mention}, in {delta}: {when.arg}")
+        await ctx.send(f"Alright {ctx.author.mention}, in {time.format_relative(when.dt)}: {when.arg}")
 
     @reminder.command(name='list', ignore_extra=False)
     async def reminder_list(self, ctx):
@@ -313,10 +309,10 @@ class Reminder(commands.Cog):
 
         guild_id = channel.guild.id if isinstance(channel, discord.TextChannel) else '@me'
         message_id = timer.kwargs.get('message_id')
-        msg = f'<@{author_id}>, {timer.human_delta}: {message}'
+        msg = f'<@{author_id}>, {timer.time_format}: {message}'
 
         if message_id:
-            msg = f'{msg}\n\n<https://discordapp.com/channels/{guild_id}/{channel.id}/{message_id}>'
+            msg = f'{msg}\n\n<https://discord.com/channels/{guild_id}/{channel.id}/{message_id}>'
 
         try:
             await channel.send(msg)
