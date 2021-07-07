@@ -245,3 +245,7 @@ def human_timedelta(dt, *, source=None, accuracy=3, brief=False, suffix=True):
             
 def format_relative(dt):
     return format_dt(dt, 'R')
+def format_dt(dt, style=None):
+    if style is None:
+        return f'<t:{int(dt.timestamp())}>'
+    return f'<t:{int(dt.timestamp())}:{style}>'

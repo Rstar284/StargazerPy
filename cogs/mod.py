@@ -1845,7 +1845,7 @@ class Mod(commands.Cog):
             await member.edit(nick=nick, reason=f"{ctx.author} changed the nick")
             await ctx.reply(f"i have changed {discord.utils.escape_mentions(str(member))}'s nick to {nick}")
         except discord.Forbidden as e:
-            await ctx.reply(f"sorry <:blobsad:856793469834231819> i do not have the permission to do so")
+            await ctx.reply(f"sorry <:blobsad:862318376219312148> i do not have the permission to do so")
 
 
 def setup(bot):

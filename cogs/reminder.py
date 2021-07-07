@@ -6,7 +6,6 @@ import asyncpg
 import datetime
 import textwrap
 
-
 class Reminders(db.Table):
     id = db.PrimaryKeyColumn()
 
@@ -14,7 +13,6 @@ class Reminders(db.Table):
     created = db.Column(db.Datetime, default="now() at time zone 'utc'")
     event = db.Column(db.String)
     extra = db.Column(db.JSON, default="'{}'::jsonb")
-
 
 class Timer:
     __slots__ = ('args', 'kwargs', 'event', 'id', 'created_at', 'expires')
@@ -33,7 +31,7 @@ class Timer:
     def temporary(cls, *, expires, created, event, args, kwargs):
         pseudo = {
             'id': None,
-            'extra': {'args': args, 'kwargs': kwargs},
+            'extra': { 'args': args, 'kwargs': kwargs },
             'event': event,
             'created': created,
             'expires': expires
@@ -50,15 +48,14 @@ class Timer:
         return hash(self.id)
 
     @property
-    def time_format(self):
+    def human_delta(self):
         return time.format_relative(self.created_at)
 
     def __repr__(self):
         return f'<Timer created={self.created_at} expires={self.expires} event={self.event}>'
 
-
 class Reminder(commands.Cog):
-    """Reminders to do remind yourself of something."""
+    """Reminders to remind you of something"""
 
     def __init__(self, bot):
         self.bot = bot
@@ -106,7 +103,7 @@ class Reminder(commands.Cog):
     async def dispatch_timers(self):
         try:
             while not self.bot.is_closed():
-                timer = self._current_timer = await self.wait_for_active_timers(days=42)
+                timer = self._current_timer = await self.wait_for_active_timers(days=43)
                 now = datetime.datetime.utcnow()
 
                 if timer.expires >= now:
@@ -127,7 +124,6 @@ class Reminder(commands.Cog):
 
     async def create_timer(self, *args, **kwargs):
         """Creates a timer.
-
         Parameters
         -----------
         when: datetime.datetime
@@ -145,11 +141,9 @@ class Reminder(commands.Cog):
         created: datetime.datetime
             Special keyword-only argument to use as the creation time.
             Should make the timedeltas a bit more consistent.
-
         Note
         ------
         Arguments and keyword arguments must be JSON serialisable.
-
         Returns
         --------
         :class:`Timer`
@@ -178,11 +172,11 @@ class Reminder(commands.Cog):
                    RETURNING id;
                 """
 
-        row = await connection.fetchrow(query, event, {'args': args, 'kwargs': kwargs}, when, now)
+        row = await connection.fetchrow(query, event, { 'args': args, 'kwargs': kwargs }, when, now)
         timer.id = row[0]
 
         # only set the data check if it can be waited on
-        if delta <= (86400 * 40):  # 40 days
+        if delta <= (86400 * 40): # 40 days
             self._have_data.set()
 
         # check if this timer is earlier than our currently run timer
@@ -196,25 +190,22 @@ class Reminder(commands.Cog):
     @commands.group(aliases=['timer', 'remind'], usage='<when>', invoke_without_command=True)
     async def reminder(self, ctx, *, when: time.UserFriendlyTime(commands.clean_content, default='\u2026')):
         """Reminds you of something after a certain amount of time.
-
         The input can be any direct date (e.g. YYYY-MM-DD) or a human
         readable offset. Examples:
-
         - "next thursday at 3pm do something funny"
         - "do the dishes tomorrow"
         - "in 3 days do the thing"
         - "2d unmute someone"
-
-        Times are in UTC, so adjust accordingly.
+        Times are in UTC.
         """
 
         timer = await self.create_timer(when.dt, 'reminder', ctx.author.id,
-                                        ctx.channel.id,
-                                        when.arg,
-                                        connection=ctx.db,
-                                        created=ctx.message.created_at,
-                                        message_id=ctx.message.id)
-        await ctx.send(f"Alright {ctx.author.mention}, in {time.format_relative(when.dt)}: {when.arg}")
+                                                             ctx.channel.id,
+                                                             when.arg,
+                                                             connection=ctx.db,
+                                                             created=ctx.message.created_at,
+                                                             message_id=ctx.message.id)
+        await ctx.send(f"Alright {ctx.author.mention}, at {time.format_dt(when.dt)}: {when.arg}")
 
     @reminder.command(name='list', ignore_extra=False)
     async def reminder_list(self, ctx):
@@ -248,9 +239,7 @@ class Reminder(commands.Cog):
     @reminder.command(name='delete', aliases=['remove', 'cancel'], ignore_extra=False)
     async def reminder_delete(self, ctx, *, id: int):
         """Deletes a reminder by its ID.
-
         To get a reminder ID, use the reminder list command.
-
         You must own the reminder to delete it, obviously.
         """
 
@@ -309,7 +298,7 @@ class Reminder(commands.Cog):
 
         guild_id = channel.guild.id if isinstance(channel, discord.TextChannel) else '@me'
         message_id = timer.kwargs.get('message_id')
-        msg = f'<@{author_id}>, {timer.time_format}: {message}'
+        msg = f'<@{author_id}>, {timer.human_delta}: {message}'
 
         if message_id:
             msg = f'{msg}\n\n<https://discord.com/channels/{guild_id}/{channel.id}/{message_id}>'
@@ -318,7 +307,6 @@ class Reminder(commands.Cog):
             await channel.send(msg)
         except discord.HTTPException:
             return
-
 
 def setup(bot):
     bot.add_cog(Reminder(bot))
